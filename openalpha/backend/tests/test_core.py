@@ -3,13 +3,14 @@ import random
 import unittest
 
 import httpx
+from helpers import FakeTime, Script
+
 from app.cache import SqliteCache, make_key
 from app.errors import FetchError, InvalidSymbol, RetriesExhausted
 from app.fetcher import AsyncFetcher, HostLimit
 from app.retry import RetryPolicy, parse_retry_after
 from app.symbols import normalize_symbol
 from app.useragents import BROWSER_AGENTS, UserAgentPool, identifying_agent
-from helpers import FakeTime, Script
 
 URL = "https://example.test/data"
 
@@ -148,7 +149,10 @@ class FetcherTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_429_honors_retry_after(self):
         ft = FakeTime()
-        s = Script([httpx.Response(429, headers={"Retry-After": "12"}), httpx.Response(200, json={})])
+        s = Script([
+            httpx.Response(429, headers={"Retry-After": "12"}),
+            httpx.Response(200, json={}),
+        ])
         f = make_fetcher(s, ft)
         await f.get(URL)
         self.assertGreaterEqual(ft.sleeps[0], 12.0)

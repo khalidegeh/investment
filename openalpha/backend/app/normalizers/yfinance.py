@@ -48,8 +48,12 @@ LABELS: dict[str, tuple[str, tuple[str, ...]]] = {
     )),
     "total_assets": ("balance", ("Total Assets",)),
     "short_term_debt": ("balance", ("Current Debt", "Current Debt And Capital Lease Obligation")),
-    "long_term_debt": ("balance", ("Long Term Debt", "Long Term Debt And Capital Lease Obligation")),
-    "total_liabilities": ("balance", ("Total Liabilities Net Minority Interest", "Total Liabilities")),
+    "long_term_debt": ("balance", (
+        "Long Term Debt", "Long Term Debt And Capital Lease Obligation",
+    )),
+    "total_liabilities": ("balance", (
+        "Total Liabilities Net Minority Interest", "Total Liabilities",
+    )),
     "shareholder_equity": ("balance", (
         "Stockholders Equity", "Common Stock Equity", "Total Equity Gross Minority Interest",
     )),
@@ -118,12 +122,16 @@ def load_with_yfinance(symbol: str) -> dict[str, pd.DataFrame]:
 
 
 def _encode(frames: dict[str, pd.DataFrame]) -> bytes:
-    return json.dumps({k: v.to_json(orient="split", date_format="iso") for k, v in frames.items()}).encode()
+    blobs = {k: v.to_json(orient="split", date_format="iso") for k, v in frames.items()}
+    return json.dumps(blobs).encode()
 
 
 def _decode(body: bytes) -> dict[str, pd.DataFrame]:
     blobs = json.loads(body)
-    return {k: pd.read_json(StringIO(v), orient="split", convert_axes=False) for k, v in blobs.items()}
+    return {
+        k: pd.read_json(StringIO(v), orient="split", convert_axes=False)
+        for k, v in blobs.items()
+    }
 
 
 class YFinanceNormalizer:

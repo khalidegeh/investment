@@ -6,6 +6,7 @@ from io import StringIO
 from pathlib import Path
 
 import pandas as pd
+
 from app.export import (
     export_filename,
     sanitize_cell,
@@ -24,7 +25,9 @@ def frame(n: int = 12) -> pd.DataFrame:
 
 class ExportTests(unittest.TestCase):
     def test_filename_is_timestamped_and_safe(self):
-        self.assertEqual(export_filename("aapl", "ohlcv", "csv", NOW), "AAPL_ohlcv_20261030T140509Z.csv")
+        self.assertEqual(
+            export_filename("aapl", "ohlcv", "csv", NOW), "AAPL_ohlcv_20261030T140509Z.csv"
+        )
         self.assertEqual(export_filename("^GSPC", "income", "parquet", NOW),
                          "_GSPC_income_20261030T140509Z.parquet")
         east = NOW.astimezone(timezone(timedelta(hours=-5)))

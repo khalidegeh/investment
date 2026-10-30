@@ -3,6 +3,7 @@ import unittest
 
 import numpy as np
 import pandas as pd
+
 from app.cache import SqliteCache
 from app.errors import DataError, FetchError
 from app.models import BALANCE_FIELDS, CASHFLOW_FIELDS, INCOME_FIELDS
@@ -237,7 +238,9 @@ class YoyTests(unittest.TestCase):
 
     def test_derive_keeps_reported_gross_profit(self):
         inc = pd.DataFrame({"revenue": [10.0], "cost_of_goods_sold": [4.0], "gross_profit": [7.0]})
-        cf = pd.DataFrame({"operating_cash_flow": [5.0], "capex": [2.0], "free_cash_flow": [np.nan]})
+        cf = pd.DataFrame(
+            {"operating_cash_flow": [5.0], "capex": [2.0], "free_cash_flow": [np.nan]}
+        )
         i2, c2 = derive(inc, cf, [])
         self.assertEqual(i2["gross_profit"].iloc[0], 7.0)
         self.assertEqual(c2["free_cash_flow"].iloc[0], 3.0)

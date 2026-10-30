@@ -9,13 +9,14 @@ from pathlib import Path
 
 import httpx
 import pandas as pd
-from app.config import Settings
-from app.engine import IngestionEngine
-from app.main import create_app
 from fastapi.testclient import TestClient
 from helpers import route
 from test_normalizers import yf_frames
 from test_sources import chart_payload
+
+from app.config import Settings
+from app.engine import IngestionEngine
+from app.main import create_app
 
 NOW = datetime(2026, 10, 30, 14, 5, 9, tzinfo=timezone.utc)
 

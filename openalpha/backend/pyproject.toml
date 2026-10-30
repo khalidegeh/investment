@@ -40,3 +40,11 @@ filterwarnings = ["error::ResourceWarning"]
 [[tool.mypy.overrides]]
 module = ["pyarrow", "pyarrow.*"]
 ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+# Explicit so results do not depend on a ruff release's default rule set.
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF", "DTZ", "PYI", "ISC"]

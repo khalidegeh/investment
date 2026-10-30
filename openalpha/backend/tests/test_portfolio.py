@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
 from app.errors import PortfolioError
 from app.portfolio import (
     PortfolioConfig,
@@ -19,7 +20,9 @@ from app.portfolio import (
 CFG = SignalConfig()
 
 
-def lot(symbol: str, shares: float, price: float, cur: str = "USD", **kw: object) -> dict[str, object]:
+def lot(
+    symbol: str, shares: float, price: float, cur: str = "USD", **kw: object
+) -> dict[str, object]:
     return {"symbol": symbol, "shares": shares, "entry_price": price, "entry_date": "2026-01-02",
             "currency": cur, **kw}
 

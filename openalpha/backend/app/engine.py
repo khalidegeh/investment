@@ -66,7 +66,7 @@ class IngestionEngine:
             *(self.ohlcv(s, years) for s in symbols), return_exceptions=True
         )
         out: dict[str, pd.DataFrame | OpenAlphaError] = {}
-        for sym, res in zip(symbols, results):
+        for sym, res in zip(symbols, results, strict=True):
             if isinstance(res, (pd.DataFrame, OpenAlphaError)):
                 out[sym] = res
             elif isinstance(res, BaseException):
