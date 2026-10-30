@@ -1,0 +1,58 @@
+# Copy to config.yaml and adjust. All behavior flows from here.
+#
+# Halal screening: list any symbols to exclude entirely (e.g. conventional
+# banks, alcohol, gambling). This is a first-pass activity filter only —
+# final halal compliance is for a qualified scholar, not this config.
+
+universe:
+  - AAPL
+  - NVDA
+  - AVGO
+
+halal_exclusions: []
+# e.g. halal_exclusions: ["JPM", "BUD"]
+
+data:
+  provider: csv
+  path: data/
+  # earnings announcement dates live in data/earnings/<SYMBOL>.csv
+  # with a single `date` column (YYYY-MM-DD), one row per announcement.
+
+strategy:
+  name: earnings_approach   # or: sma_crossover
+  version: "1.0"
+  entry_days_before: 30     # enter when 0 < exit_days_before < days_to_earnings <= entry
+  exit_days_before: 1       # flatten when days_to_earnings <= exit (before report)
+  trend_window: 20          # require close > SMA(trend_window) to enter
+  weight: 0.10              # target position weight per symbol
+  # sma_crossover params (when name: sma_crossover):
+  # fast: 20
+  # slow: 50
+
+risk:
+  max_position_pct: 0.10     # max value of one symbol as fraction of equity
+  max_exposure_pct: 0.60     # max gross exposure as fraction of equity
+  max_daily_loss_pct: 0.03   # trip kill switch if day PnL <= -3% of open equity
+  kill_switch: false          # set true to halt all new orders
+
+execution:
+  slippage_bps: 5
+  commission_per_trade: 4.95 # CAD, applied to every fill
+
+ledger:
+  base_currency: CAD
+
+backtest:
+  start_cash: 100000.0
+  seed: 42
+
+fundamentals:
+  providers: ["finnhub", "yfinance", "csv"]  # tried in order; first with >= min_coverage wins
+  finnhub_api_key_env: FINNHUB_API_KEY
+  csv_dir: data/fundamentals   # manual backstop: data/fundamentals/<SYMBOL>.csv (metric,value)
+  min_coverage: 5              # fewer metrics -> verdict "insufficient-data", never a guess
+  buy_at: 65.0
+  hold_at: 40.0
+  # Metric weights and bands live in src/tradingsystem/fundamentals/scorecard.py
+  # (DEFAULT_METRICS). Override here with a `scorecard:` list of
+  # {name, weight, higher_is_better, bands: [[limit, points], ...]}.

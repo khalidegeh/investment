@@ -1,0 +1,42 @@
+# Wednesday allocator config — the handful.
+#
+# target_pct is the desired weight as % of TOTAL portfolio value (including
+# legacy holdings). Targets are normalized to sum to 100 in code.
+# Only names with halal: compliant can receive a buy recommendation —
+# that is the hard gate. "unchecked" names are valued in the portfolio
+# table but never recommended until verified at zoya.finance/stocks/<ticker>.
+# priority breaks ties when several names are equally underweight (lower first).
+
+cash_default: 250
+
+handful:
+  - symbol: NVDA
+    target_pct: 14.29
+    halal: compliant      # Zoya, checked 2026-10-15 (interest income 1.07% of revenue)
+    priority: 4
+  - symbol: AAPL
+    target_pct: 14.29
+    halal: compliant      # Zoya app badge COMPLIANT — confirmed by Khalid via screenshot 2026-10-21
+    priority: 5
+  - symbol: "ON"
+    target_pct: 14.29
+    halal: compliant      # Zoya zoya.finance/stocks/on — "As of October 2026, ON is Shariah-compliant
+                         # and therefore considered halal to invest in" (verified 2026-10-21; page header:
+                         # "ON stock is Shariah-compliant"). Interest income $95.1M on $5,995.4M revenue = 1.59%.
+    priority: 6
+  - symbol: SHOP.TO
+    target_pct: 14.29
+    halal: unchecked      # verify at zoya.finance/stocks/shop (lowercase route)
+    priority: 7
+  # ONON (On Holding) removed 2026-10-21 at Khalid's direction: consumer
+  # product (footwear) — he does not invest in consumer products aside from tech.
+  # RELY (Remitly) and GIC (Global Industrial) removed 2026-10-21 at Khalid's
+  # direction: not tech-facing. He wants AI / tech names like Apple — his
+  # diversification is across tech, not out of it.
+
+# Holdings with target 0: valued, never receive new money.
+legacy:
+  - symbol: XQQ
+    target_pct: 0
+    note: legacy Nasdaq-100 ETF holding; weight dilutes as the handful grows.
+      Tech concentration lives here — no new money until the handful is built.

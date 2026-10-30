@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pkl
+*.pkl.bak-*
+.env
+.DS_Store
+config.yaml
