@@ -36,6 +36,8 @@ class Lot(BaseModel):
     # Owner plan: SELL once this far above the average entry (0 = sell when profitable).
     # Enter entry_price as cost per share including commission, so "profit" is real.
     take_profit_pct: float | None = Field(default=None, ge=0)
+    # Owner floor: never show a SELL while the price is below the average entry.
+    never_sell_below_entry: bool = False
 
     @field_validator("symbol")
     @classmethod
@@ -148,6 +150,10 @@ def build_snapshot(
             if len(plans) != 1:
                 raise PortfolioError(f"{account}/{symbol}: lots disagree on take_profit_pct")
             take_profit = plans.pop()
+            floors = {g.never_sell_below_entry for g in group}
+            if len(floors) != 1:
+                raise PortfolioError(f"{account}/{symbol}: lots disagree on never_sell_below_entry")
+            floor = floors.pop()
             series = closes.get(symbol)
             flags: list[str] = []
             price = prev = None
@@ -158,7 +164,8 @@ def build_snapshot(
                 flags.append("no price data")
             sig = (
                 compute_signal(
-                    series, avg, cfg, sharia_ok=sharia_ok, take_profit_pct=take_profit
+                    series, avg, cfg, sharia_ok=sharia_ok, take_profit_pct=take_profit,
+                    no_sell_below_entry=floor,
                 )
                 if series is not None and len(series) > 0
                 else Signal("N/A", ("no price data",))

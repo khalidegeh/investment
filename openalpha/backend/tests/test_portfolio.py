@@ -168,6 +168,44 @@ class TakeProfitTests(unittest.TestCase):
             pf({"TFSA": [lot("ON", 1, 55.0, take_profit_pct=-0.1)]})
 
 
+class FloorTests(unittest.TestCase):
+    """XQQ-style rule: never sell below entry, even if an exit rule is switched on."""
+
+    def test_downtrend_exit_suppressed_below_entry(self):
+        cfg = SignalConfig(sell_on_downtrend=True)
+        s = downtrend()
+        entry = float(s.iloc[-1]) * 1.25                       # price is well under entry
+        free = compute_signal(s, entry, cfg, sharia_ok=True)
+        held = compute_signal(s, entry, cfg, sharia_ok=True, no_sell_below_entry=True)
+        self.assertEqual(free.action, "SELL")
+        self.assertEqual(held.action, "HOLD")
+        self.assertIn("never to sell below your entry", held.reasons[0])
+        self.assertTrue(any(r.startswith("WARNING: confirmed downtrend") for r in held.reasons))
+        self.assertAlmostEqual(held.recovery_needed or 0.0, 0.25)
+
+    def test_stop_loss_also_suppressed_below_entry(self):
+        cfg = SignalConfig(stop_loss_pct=0.10)
+        s = uptrend_with_dip()
+        entry = float(s.iloc[-1]) / 0.8
+        self.assertEqual(compute_signal(s, entry, cfg, sharia_ok=True).action, "SELL")
+        held = compute_signal(s, entry, cfg, sharia_ok=True, no_sell_below_entry=True)
+        self.assertEqual(held.action, "HOLD")
+
+    def test_floor_does_not_block_sells_above_entry(self):
+        cfg = SignalConfig(sell_on_downtrend=True)
+        s = downtrend()
+        entry = float(s.iloc[-1]) * 0.9                        # price is above entry
+        sig = compute_signal(s, entry, cfg, sharia_ok=True, no_sell_below_entry=True)
+        self.assertEqual(sig.action, "SELL")
+
+    def test_lots_must_agree_on_floor(self):
+        closes = {"XQQ": pd.Series([10.0, 9.0])}
+        mixed = [lot("XQQ", 1, 10.0, cur="CAD", never_sell_below_entry=True),
+                 lot("XQQ", 1, 11.0, cur="CAD")]
+        with self.assertRaises(PortfolioError):
+            build_snapshot(pf({"TFSA": mixed}), closes, 1.4)
+
+
 class SignalTests(unittest.TestCase):
     def test_buy_on_pullback_in_uptrend(self):
         sig = compute_signal(uptrend_with_dip(), 100.0, CFG, sharia_ok=True)

@@ -55,12 +55,15 @@ def compute_signal(
     *,
     sharia_ok: bool,
     take_profit_pct: float | None = None,
+    no_sell_below_entry: bool = False,
 ) -> Signal:
     """Signal for one holding (stock or ETF) from its daily closes (ascending).
 
     ``take_profit_pct`` is the owner's per-holding plan: SELL once the price is at
     least that far above the average entry (0.0 means "sell when profitable").
     It needs only the latest price, so it works before 200 bars of history exist.
+    ``no_sell_below_entry`` is the owner's floor: any SELL that would fire while the price
+    is under the average entry is shown as a HOLD with the SELL reason as a WARNING.
     """
     if take_profit_pct is not None and avg_entry is not None and len(close) > 0:
         now_price = float(close.iloc[-1])
@@ -97,14 +100,26 @@ def compute_signal(
         notes.append(f"below your entry by {-vs_entry:.1%}; needs +{recovery:.1%} to get back")
     trend_msg = f"confirmed downtrend: price and SMA{cfg.fast} are below SMA{cfg.slow}"
 
+    under_floor = no_sell_below_entry and avg_entry is not None and last < avg_entry
+
+    def sell_or_hold(*reasons: str) -> Signal:
+        if under_floor:
+            return sig(
+                "HOLD",
+                "SELL suppressed: your rule is never to sell below your entry",
+                *(f"WARNING: {r}" for r in reasons),
+                *notes,
+            )
+        return sig("SELL", *reasons, *notes)
+
     if (
         cfg.stop_loss_pct is not None
         and avg_entry is not None
         and last <= avg_entry * (1.0 - cfg.stop_loss_pct)
     ):
-        return sig("SELL", f"stop loss: {cfg.stop_loss_pct:.0%} or more below your entry", *notes)
+        return sell_or_hold(f"stop loss: {cfg.stop_loss_pct:.0%} or more below your entry")
     if downtrend and cfg.sell_on_downtrend:
-        return sig("SELL", trend_msg, *notes)
+        return sell_or_hold(trend_msg)
     if downtrend:
         return sig("HOLD", f"WARNING: {trend_msg} (exits are off, holding)", *notes)
     if uptrend and z is not None and z <= -cfg.z_entry:
