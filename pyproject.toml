@@ -1,0 +1,29 @@
+[project]
+name = "tradingsystem"
+version = "0.1.0"
+description = "Reliable algorithmic trading research + paper trading base (CRA-aware ledger)"
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.0",
+    "pyyaml>=6.0",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = []
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["src/tradingsystem/valuation", "src/tradingsystem/analytics"]

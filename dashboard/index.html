@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fundamentals Dashboard</title><style>
+body{font-family:-apple-system,system-ui,Segoe UI,Roboto,sans-serif;margin:0;
+color:#101828;background:#f9fafb}
+.wrap{max-width:1080px;margin:0 auto;padding:24px}
+h1{font-size:22px;margin:0 0 4px}h2{font-size:16px;margin:28px 0 8px}
+.sub{color:#475467;font-size:13px;margin-bottom:16px}
+.banner{background:#fffbeb;border:1px solid #fedf89;border-radius:8px;
+padding:12px 16px;font-size:13px;margin:16px 0}
+.cards{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}
+.card{background:#fff;border:1px solid #e4e7ec;border-radius:8px;
+padding:12px 16px;min-width:120px}
+.card .n{font-size:24px;font-weight:700}.card .l{font-size:12px;color:#475467}
+table{width:100%;border-collapse:collapse;background:#fff;font-size:13px;
+border:1px solid #e4e7ec;border-radius:8px;overflow:hidden}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid #e4e7ec}
+th{background:#f9fafb;color:#475467;font-weight:600;font-size:12px}
+tr:last-child td{border-bottom:none}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;
+font-size:11px;font-weight:700}
+.warn{color:#9a6700;font-size:12px}
+.detail{background:#fff;border:1px solid #e4e7ec;border-radius:8px;
+padding:16px;margin:12px 0}
+.detail h3{margin:0 0 8px;font-size:15px}
+footer{margin-top:32px;font-size:12px;color:#475467}
+code{background:#f2f4f7;padding:1px 5px;border-radius:4px;font-size:12px}
+</style></head>
+<body><div class="wrap">
+<h1>Fundamentals Dashboard</h1>
+<div class="sub">Generated 2026-10-16 14:03 ET (18:03 UTC)
+&middot; provider chain: finnhub, yfinance, csv</div>
+<div class="banner"><b>How to read this:</b> every verdict is computed from the
+metric table below it using fixed thresholds in
+<code>src/tradingsystem/fundamentals/scorecard.py</code>. A missing metric is
+skipped, never estimated. Fewer than 5 of 8 metrics means
+<b>NO DATA</b>, not a guess. Halal screening here is a first-pass activity
+filter only; final compliance belongs to a qualified scholar.</div>
+<div class="cards"><div class="card"><div class="n">3</div><div class="l">BUY</div></div><div class="card"><div class="n">2</div><div class="l">HOLD</div></div><div class="card"><div class="n">0</div><div class="l">SELL</div></div><div class="card"><div class="n">1</div><div class="l">NO DATA</div></div><div class="card"><div class="n">0</div><div class="l">EXCLUDED</div></div></div>
+<h2>Positions and verdicts</h2>
+<table><tr><th>Symbol</th><th>Ledger position</th><th>Verdict</th><th>Score</th>
+<th>Price</th><th>Source</th></tr>
+<tr><td><b>AAPL</b></td><td>FHSA 3.1225 sh @ 334.30</td><td><span class="badge" style="color:#9a6700;background:#fef3c7">HOLD</span></td><td>52.7</td><td>342.50 USD</td><td>finnhub</td></tr><tr><td><b>AVGO</b></td><td>-</td><td><span class="badge" style="color:#1a7f37;background:#dcfce7">BUY</span></td><td>82.7</td><td>331.52 USD</td><td>finnhub</td></tr><tr><td><b>NVDA</b></td><td>TFSA 3.1106 sh @ 219.11, FHSA 3.0000 sh @ 240.27</td><td><span class="badge" style="color:#1a7f37;background:#dcfce7">BUY</span></td><td>95.3</td><td>215.08 USD</td><td>finnhub</td></tr><tr><td><b>ON</b></td><td>TFSA 4.6746 sh @ 75.08</td><td><span class="badge" style="color:#9a6700;background:#fef3c7">HOLD</span></td><td>52.4</td><td>72.19 USD</td><td>finnhub</td></tr><tr><td><b>SHOP.TO</b></td><td>TFSA 2.6551 sh @ 193.56, FHSA 5.0000 sh @ 233.73</td><td><span class="badge" style="color:#1a7f37;background:#dcfce7">BUY</span></td><td>66.0</td><td>239.55 CAD</td><td>yfinance</td></tr><tr><td><b>XQQ</b></td><td>FHSA 26.3435 sh @ 75.92</td><td><span class="badge" style="color:#475467;background:#f2f4f7">NO DATA</span></td><td>-</td><td>-</td><td>-</td></tr>
+</table>
+<h2>Metric detail</h2>
+<div class="detail"><h3>AAPL <span class="badge" style="color:#9a6700;background:#fef3c7">HOLD</span> <span style='font-weight:400;font-size:13px'>score 52.7 | coverage 7/8 | finnhub | 2026-10-16T18:03:48+00:00</span></h3><div class="warn">! metrics skipped (no data): fcf_margin_ttm</div><table><tr><th>Metric</th><th>Value</th><th>Points</th><th>Weight</th></tr><tr><td><code>pe_ttm</code></td><td>38.8269</td><td>+0</td><td>12.0</td></tr>
+<tr><td><code>peg_ttm</code></td><td>2.8227</td><td>-1</td><td>18.0</td></tr>
+<tr><td><code>roe_ttm</code></td><td>1.3718</td><td>+2</td><td>15.0</td></tr>
+<tr><td><code>revenue_growth_yoy</code></td><td>0.1424</td><td>+1</td><td>12.5</td></tr>
+<tr><td><code>eps_growth_yoy</code></td><td>0.3261</td><td>+2</td><td>12.5</td></tr>
+<tr><td><code>debt_to_equity</code></td><td>1.3547</td><td>+0</td><td>8.0</td></tr>
+<tr><td><code>current_ratio</code></td><td>0.8933</td><td>+0</td><td>7.0</td></tr></table></div><div class="detail"><h3>AVGO <span class="badge" style="color:#1a7f37;background:#dcfce7">BUY</span> <span style='font-weight:400;font-size:13px'>score 82.7 | coverage 7/8 | finnhub | 2026-10-16T18:03:52+00:00</span></h3><div class="warn">! metrics skipped (no data): fcf_margin_ttm</div><table><tr><th>Metric</th><th>Value</th><th>Points</th><th>Weight</th></tr><tr><td><code>pe_ttm</code></td><td>42.4144</td><td>-1</td><td>12.0</td></tr>
+<tr><td><code>peg_ttm</code></td><td>0.7040</td><td>+2</td><td>18.0</td></tr>
+<tr><td><code>roe_ttm</code></td><td>0.4391</td><td>+2</td><td>15.0</td></tr>
+<tr><td><code>revenue_growth_yoy</code></td><td>0.4869</td><td>+2</td><td>12.5</td></tr>
+<tr><td><code>eps_growth_yoy</code></td><td>1.0010</td><td>+2</td><td>12.5</td></tr>
+<tr><td><code>debt_to_equity</code></td><td>0.8013</td><td>+1</td><td>8.0</td></tr>
+<tr><td><code>current_ratio</code></td><td>1.7054</td><td>+2</td><td>7.0</td></tr></table></div><div class="detail"><h3>NVDA <span class="badge" style="color:#1a7f37;background:#dcfce7">BUY</span> <span style='font-weight:400;font-size:13px'>score 95.3 | coverage 7/8 | finnhub | 2026-10-16T18:03:55+00:00</span></h3><div class="warn">! metrics skipped (no data): fcf_margin_ttm</div><table><tr><th>Metric</th><th>Value</th><th>Points</th><th>Weight</th></tr><tr><td><code>pe_ttm</code></td><td>26.8827</td><td>+1</td><td>12.0</td></tr>
+<tr><td><code>peg_ttm</code></td><td>0.5135</td><td>+2</td><td>18.0</td></tr>
+<tr><td><code>roe_ttm</code></td><td>1.1011</td><td>+2</td><td>15.0</td></tr>
+<tr><td><code>revenue_growth_yoy</code></td><td>0.8338</td><td>+2</td><td>12.5</td></tr>
+<tr><td><code>eps_growth_yoy</code></td><td>1.2515</td><td>+2</td><td>12.5</td></tr>
+<tr><td><code>debt_to_equity</code></td><td>0.0538</td><td>+2</td><td>8.0</td></tr>
+<tr><td><code>current_ratio</code></td><td>3.9053</td><td>+2</td><td>7.0</td></tr></table></div><div class="detail"><h3>ON <span class="badge" style="color:#9a6700;background:#fef3c7">HOLD</span> <span style='font-weight:400;font-size:13px'>score 52.4 | coverage 7/8 | finnhub | 2026-10-16T18:03:59+00:00</span></h3><div class="warn">! metrics skipped (no data): fcf_margin_ttm</div><table><tr><th>Metric</th><th>Value</th><th>Points</th><th>Weight</th></tr><tr><td><code>pe_ttm</code></td><td>45.2200</td><td>-1</td><td>12.0</td></tr>
+<tr><td><code>peg_ttm</code></td><td>1.2310</td><td>+1</td><td>18.0</td></tr>
+<tr><td><code>roe_ttm</code></td><td>0.0838</td><td>+0</td><td>15.0</td></tr>
+<tr><td><code>revenue_growth_yoy</code></td><td>-0.0314</td><td>-1</td><td>12.5</td></tr>
+<tr><td><code>eps_growth_yoy</code></td><td>0.4467</td><td>+2</td><td>12.5</td></tr>
+<tr><td><code>debt_to_equity</code></td><td>0.3916</td><td>+2</td><td>8.0</td></tr>
+<tr><td><code>current_ratio</code></td><td>4.5221</td><td>+2</td><td>7.0</td></tr></table></div><div class="detail"><h3>SHOP.TO <span class="badge" style="color:#1a7f37;background:#dcfce7">BUY</span> <span style='font-weight:400;font-size:13px'>score 66.0 | coverage 8/8 | yfinance | 2026-10-16T18:04:04+00:00</span></h3><div class="warn">! yfinance is unofficial and may be throttled; treat as fallback data</div><table><tr><th>Metric</th><th>Value</th><th>Points</th><th>Weight</th></tr><tr><td><code>pe_ttm</code></td><td>116.8537</td><td>-1</td><td>12.0</td></tr>
+<tr><td><code>peg_ttm</code></td><td>1.7300</td><td>+0</td><td>18.0</td></tr>
+<tr><td><code>roe_ttm</code></td><td>0.1554</td><td>+1</td><td>15.0</td></tr>
+<tr><td><code>fcf_margin_ttm</code></td><td>0.1197</td><td>+1</td><td>15.0</td></tr>
+<tr><td><code>revenue_growth_yoy</code></td><td>0.3370</td><td>+2</td><td>12.5</td></tr>
+<tr><td><code>eps_growth_yoy</code></td><td>0.6810</td><td>+2</td><td>12.5</td></tr>
+<tr><td><code>debt_to_equity</code></td><td>0.0140</td><td>+2</td><td>8.0</td></tr>
+<tr><td><code>current_ratio</code></td><td>5.3530</td><td>+2</td><td>7.0</td></tr></table></div><div class="detail"><h3>XQQ <span class="badge" style="color:#475467;background:#f2f4f7">NO DATA</span> <span style='font-weight:400;font-size:13px'>score - | coverage 0/8 | none | 2026-10-16T18:04:04+00:00</span></h3><div class="warn">! no provider could serve fundamentals for this symbol</div><table><tr><th>Metric</th><th>Value</th><th>Points</th><th>Weight</th></tr><tr><td colspan="4">no metrics</td></tr></table></div>
+<footer>Deterministic build: same inputs always produce the same page.
+Scores: buy &ge; 65, hold 40&ndash;65, sell &lt; 40. Prices are reference only,
+not trade triggers. Paper-trading research tool; not financial advice.</footer>
+</div></body></html>

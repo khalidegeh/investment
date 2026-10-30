@@ -1,0 +1,22 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e . -e ./openalpha/backend pytest ruff==0.16.9 mypy==2.4.1 pandas-stubs
+      - run: PYTHONPATH=src python -m unittest discover -s tests
+      - run: ruff check src/tradingsystem/valuation src/tradingsystem/analytics tests/test_valuation.py tests/test_analytics.py
+      - run: PYTHONPATH=src mypy
+      - run: cd openalpha/backend && python -m pytest
+      - run: ruff check openalpha/backend
+      - run: cd openalpha/backend && mypy
