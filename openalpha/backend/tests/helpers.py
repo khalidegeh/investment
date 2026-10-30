@@ -1,13 +1,9 @@
 """Shared test doubles: a fake clock whose sleep advances it, and a scripted transport."""
 from __future__ import annotations
 
-import sys
 from collections.abc import Callable
-from pathlib import Path
 
 import httpx
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 
 class FakeTime:

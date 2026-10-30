@@ -1,0 +1,10 @@
+{
+  "base_currency": "CAD",
+  "accounts": {
+    "TFSA": [
+      {"symbol": "EXAMPLE", "shares": 1, "entry_price": 100.00, "entry_date": "2026-01-02",
+       "currency": "USD", "instrument": "stock", "sharia": "unchecked"}
+    ],
+    "FHSA": []
+  }
+}

@@ -3,13 +3,13 @@ import random
 import unittest
 
 import httpx
+from app.cache import SqliteCache, make_key
+from app.errors import FetchError, InvalidSymbol, RetriesExhausted
+from app.fetcher import AsyncFetcher, HostLimit
+from app.retry import RetryPolicy, parse_retry_after
+from app.symbols import normalize_symbol
+from app.useragents import BROWSER_AGENTS, UserAgentPool, identifying_agent
 from helpers import FakeTime, Script
-from openalpha.cache import SqliteCache, make_key
-from openalpha.errors import FetchError, InvalidSymbol, RetriesExhausted
-from openalpha.fetcher import AsyncFetcher, HostLimit
-from openalpha.retry import RetryPolicy, parse_retry_after
-from openalpha.symbols import normalize_symbol
-from openalpha.useragents import BROWSER_AGENTS, UserAgentPool, identifying_agent
 
 URL = "https://example.test/data"
 

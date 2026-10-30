@@ -25,3 +25,7 @@ class DataError(OpenAlphaError):
 
 class InvalidSymbol(OpenAlphaError, ValueError):
     """A ticker failed validation."""
+
+
+class PortfolioError(OpenAlphaError):
+    """The local portfolio config is missing, malformed or inconsistent."""

@@ -11,3 +11,6 @@ config.yaml
 *.sqlite-wal
 *.sqlite-shm
 openalpha_layout.json
+openalpha/config/portfolio_config.json
+openalpha/backend/exports/
+exports/
