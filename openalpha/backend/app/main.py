@@ -8,6 +8,7 @@ Portfolio entries are read from a local file and are never sent anywhere.
 """
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass, replace
@@ -25,7 +26,17 @@ from .errors import DataError, FetchError, InvalidSymbol, OpenAlphaError, Portfo
 from .export import export_filename, stream_csv, write_csv_file, write_parquet_file
 from .normalizers import EdgarNormalizer, StatementService, YFinanceNormalizer
 from .normalizers.yfinance import FrameLoader, load_with_yfinance
-from .portfolio import PortfolioSnapshot, SignalConfig, build_snapshot, load_portfolio
+from .portfolio import (
+    PortfolioConfig,
+    PortfolioSnapshot,
+    SignalConfig,
+    ThesisResult,
+    assess_thesis,
+    build_snapshot,
+    fund_result,
+    load_portfolio,
+)
+from .portfolio.thesis import UNKNOWN
 
 Dataset = Literal["ohlcv", "income", "balance", "cashflow"]
 Fmt = Literal["csv", "parquet"]
@@ -49,6 +60,24 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
+async def _theses(svc: Services, pf: PortfolioConfig) -> dict[str, ThesisResult]:
+    """Thesis status per symbol. Funds are not applicable; failures are UNKNOWN, never guessed."""
+    funds = {
+        lot.symbol for lots in pf.accounts.values() for lot in lots if lot.instrument == "etf"
+    }
+    out = {sym: fund_result() for sym in funds}
+    names = [s for s in pf.symbols() if s not in funds]
+    got = await asyncio.gather(*(svc.statements.get(s) for s in names), return_exceptions=True)
+    for sym, res in zip(names, got, strict=True):
+        if isinstance(res, OpenAlphaError):
+            out[sym] = ThesisResult(UNKNOWN, (f"statements unavailable: {res}",))
+        elif isinstance(res, BaseException):
+            raise res
+        else:
+            out[sym] = assess_thesis(res.income)
+    return out
+
+
 async def _snapshot(svc: Services) -> PortfolioSnapshot:
     pf = load_portfolio(svc.settings.portfolio_path)
     frames = await svc.engine.ohlcv_many(pf.symbols(), years=3)
@@ -60,7 +89,8 @@ async def _snapshot(svc: Services) -> PortfolioSnapshot:
             usdcad = float((await svc.engine.ohlcv("CAD=X", years=1))["close"].iloc[-1])
         except OpenAlphaError as exc:
             notes += (f"USDCAD: {exc}",)
-    return replace(build_snapshot(pf, closes, usdcad, svc.signal_cfg), notes=notes)
+    theses = await _theses(svc, pf)
+    return replace(build_snapshot(pf, closes, usdcad, svc.signal_cfg, theses), notes=notes)
 
 
 def _positions_frame(snap: PortfolioSnapshot) -> pd.DataFrame:
@@ -72,6 +102,8 @@ def _positions_frame(snap: PortfolioSnapshot) -> pd.DataFrame:
             "total_pl": ln.total_pl, "total_pl_pct": ln.total_pl_pct, "day_pl": ln.day_pl,
             "signal": ln.signal.action, "reasons": "; ".join(ln.signal.reasons),
             "flags": "; ".join(ln.flags),
+            "thesis": "" if ln.thesis is None else ln.thesis.status,
+            "thesis_reasons": "" if ln.thesis is None else "; ".join(ln.thesis.reasons),
         }
         for ln in snap.lines()
     ]

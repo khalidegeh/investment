@@ -54,8 +54,25 @@ def compute_signal(
     cfg: SignalConfig,
     *,
     sharia_ok: bool,
+    take_profit_pct: float | None = None,
 ) -> Signal:
-    """Signal for one holding (stock or ETF) from its daily closes (ascending)."""
+    """Signal for one holding (stock or ETF) from its daily closes (ascending).
+
+    ``take_profit_pct`` is the owner's per-holding plan: SELL once the price is at
+    least that far above the average entry (0.0 means "sell when profitable").
+    It needs only the latest price, so it works before 200 bars of history exist.
+    """
+    if take_profit_pct is not None and avg_entry is not None and len(close) > 0:
+        now_price = float(close.iloc[-1])
+        if now_price >= avg_entry * (1.0 + take_profit_pct):
+            gain = now_price / avg_entry - 1.0
+            plan = (
+                "your plan: sell when profitable"
+                if take_profit_pct == 0
+                else f"target {take_profit_pct:.1%}"
+            )
+            return Signal("SELL", (f"profit target met: {gain:.1%} above your entry ({plan})",),
+                          vs_entry=gain)
     if len(close) < cfg.slow + 1:
         return Signal("N/A", (f"need {cfg.slow + 1} daily bars, have {len(close)}",))
 

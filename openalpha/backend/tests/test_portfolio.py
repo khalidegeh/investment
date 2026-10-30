@@ -126,6 +126,48 @@ class SnapshotTests(unittest.TestCase):
             rolling_pl(pd.Series([1.0]), 0, 1.0)
 
 
+class TakeProfitTests(unittest.TestCase):
+    """ON's plan: sell when profitable. Only the latest price and your entry matter."""
+
+    def test_sell_once_price_exceeds_entry(self):
+        sig = compute_signal(pd.Series([8.0, 9.0, 10.5]), 10.0, CFG, sharia_ok=True,
+                             take_profit_pct=0.0)
+        self.assertEqual(sig.action, "SELL")
+        self.assertIn("sell when profitable", sig.reasons[0])
+        self.assertAlmostEqual(sig.vs_entry or 0.0, 0.05)
+
+    def test_exactly_at_entry_counts_as_profitable_boundary(self):
+        at = compute_signal(pd.Series([10.0]), 10.0, CFG, sharia_ok=True, take_profit_pct=0.0)
+        self.assertEqual(at.action, "SELL")
+        below = compute_signal(pd.Series([9.99]), 10.0, CFG, sharia_ok=True, take_profit_pct=0.0)
+        self.assertNotEqual(below.action, "SELL")
+
+    def test_margin_covers_costs(self):
+        s = pd.Series([10.4])
+        self.assertNotEqual(
+            compute_signal(s, 10.0, CFG, sharia_ok=True, take_profit_pct=0.05).action, "SELL")
+        self.assertEqual(
+            compute_signal(pd.Series([10.5]), 10.0, CFG, sharia_ok=True,
+                           take_profit_pct=0.05).action, "SELL")
+
+    def test_no_plan_means_no_sell_even_when_far_above_entry(self):
+        sig = compute_signal(pd.Series(np.linspace(100.0, 160.0, 300)), 10.0, CFG, sharia_ok=True)
+        self.assertNotEqual(sig.action, "SELL")
+
+    def test_plan_flows_through_snapshot_and_lots_must_agree(self):
+        closes = {"ON": pd.Series([50.0, 60.0])}
+        lots = [lot("ON", 1, 55.0, take_profit_pct=0.0)]
+        line = build_snapshot(pf({"TFSA": lots}), closes, 1.4).lines()[0]
+        self.assertEqual(line.signal.action, "SELL")
+        mixed = [lot("ON", 1, 55.0, take_profit_pct=0.0), lot("ON", 1, 50.0)]
+        with self.assertRaises(PortfolioError):
+            build_snapshot(pf({"TFSA": mixed}), closes, 1.4)
+
+    def test_negative_target_rejected(self):
+        with self.assertRaises(Exception):  # noqa: B017  (pydantic ValidationError)
+            pf({"TFSA": [lot("ON", 1, 55.0, take_profit_pct=-0.1)]})
+
+
 class SignalTests(unittest.TestCase):
     def test_buy_on_pullback_in_uptrend(self):
         sig = compute_signal(uptrend_with_dip(), 100.0, CFG, sharia_ok=True)

@@ -61,6 +61,8 @@ Routes: `/health`, `/api/ohlcv/{symbol}`, `/api/statements/{symbol}/{income|bala
 - **Nothing is guessed.** Missing statement values are NaN; a missing price or FX rate excludes a line from totals and flags it.
 - **Sharia gate.** A BUY signal needs `sharia: "compliant"` on the holding; anything else is downgraded to HOLD.
 - **Anything you are invested in is included**, ETFs too: totals, P/L and signals. `instrument` is a label only.
+- **Thesis check, not price.** Each stock gets INTACT, WATCH, BROKEN or UNKNOWN from annual revenue growth: BROKEN after 2 straight non-growth periods, WATCH on a single decline, 2 slowdowns in a row, or growth well below peers. A missing year breaks the chain; short history is UNKNOWN. Funds are N/A.
+- **Per-holding plans.** `take_profit_pct` on a lot (0 = sell when profitable) produces a SELL once price reaches that level above your average entry. Enter `entry_price` as cost per share including commission so profit is real.
 - **Hold-through by default.** No SELL is produced unless you opt in (`stop_loss_pct`, `sell_on_downtrend`). A drawdown or downtrend shows as a WARNING on a HOLD, with how far below your entry you are and the gain needed to get back.
 
 ## Known limits

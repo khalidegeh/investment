@@ -139,6 +139,8 @@ class PositionsApiTests(unittest.TestCase):
             self.assertEqual(lines["NVDA"]["total_pl"], 2.0)       # (11 - 10) x 2
             self.assertEqual(lines["NVDA"]["day_pl"], -2.0)        # (11 - 12) x 2
             self.assertEqual(lines["NVDA"]["signal"]["action"], "N/A")   # only 2 bars of history
+            # One growth reading is too few to judge a trend: UNKNOWN, never a guess.
+            self.assertEqual(lines["NVDA"]["thesis"]["status"], "UNKNOWN")
             self.assertAlmostEqual(snap["total_pl_base"], 2.0 * 11.0 + 3.0)   # USD x 11 + CAD
 
     def test_positions_csv_export(self):
@@ -148,6 +150,7 @@ class PositionsApiTests(unittest.TestCase):
             self.assertIn("PORTFOLIO_positions_20261030T140509Z.csv",
                           r.headers["content-disposition"])
             self.assertTrue(r.text.startswith("account,symbol,currency,shares,avg_entry"))
+            self.assertIn("thesis_reasons", r.text.splitlines()[0])
 
     def test_missing_portfolio_is_409(self):
         with tempfile.TemporaryDirectory() as tmp, client(tmp) as c:

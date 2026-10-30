@@ -8,6 +8,7 @@ from .positions import (
     rolling_pl,
 )
 from .signals import Signal, SignalConfig, compute_signal
+from .thesis import ThesisConfig, ThesisResult, assess_thesis, fund_result
 
 __all__ = [
     "PortfolioConfig",
@@ -15,8 +16,12 @@ __all__ = [
     "PositionLine",
     "Signal",
     "SignalConfig",
+    "ThesisConfig",
+    "ThesisResult",
+    "assess_thesis",
     "build_snapshot",
     "compute_signal",
+    "fund_result",
     "load_portfolio",
     "rolling_pl",
 ]

@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 from ..errors import InvalidSymbol, PortfolioError
 from ..symbols import normalize_symbol
 from .signals import Signal, SignalConfig, compute_signal
+from .thesis import ThesisResult
 
 _ACCOUNT = re.compile(r"[A-Z0-9_]{1,16}")
 
@@ -32,6 +33,9 @@ class Lot(BaseModel):
     currency: Literal["CAD", "USD"]
     instrument: Literal["stock", "etf"] = "stock"
     sharia: Literal["compliant", "non_compliant", "questionable", "unchecked"] = "unchecked"
+    # Owner plan: SELL once this far above the average entry (0 = sell when profitable).
+    # Enter entry_price as cost per share including commission, so "profit" is real.
+    take_profit_pct: float | None = Field(default=None, ge=0)
 
     @field_validator("symbol")
     @classmethod
@@ -87,6 +91,7 @@ class PositionLine:
     day_pl: float | None
     signal: Signal
     flags: tuple[str, ...] = ()
+    thesis: ThesisResult | None = None
 
 
 @dataclass(frozen=True)
@@ -120,6 +125,7 @@ def build_snapshot(
     closes: Mapping[str, pd.Series],
     usdcad: float | None,
     cfg: SignalConfig | None = None,
+    theses: Mapping[str, ThesisResult] | None = None,
 ) -> PortfolioSnapshot:
     """Compute every line and the per-account and overall totals in CAD."""
     cfg = cfg or SignalConfig()
@@ -138,6 +144,10 @@ def build_snapshot(
             avg = sum(g.shares * g.entry_price for g in group) / shares
             cur, inst = group[0].currency, group[0].instrument
             sharia_ok = all(g.sharia == "compliant" for g in group)
+            plans = {g.take_profit_pct for g in group}
+            if len(plans) != 1:
+                raise PortfolioError(f"{account}/{symbol}: lots disagree on take_profit_pct")
+            take_profit = plans.pop()
             series = closes.get(symbol)
             flags: list[str] = []
             price = prev = None
@@ -147,7 +157,9 @@ def build_snapshot(
             else:
                 flags.append("no price data")
             sig = (
-                compute_signal(series, avg, cfg, sharia_ok=sharia_ok)
+                compute_signal(
+                    series, avg, cfg, sharia_ok=sharia_ok, take_profit_pct=take_profit
+                )
                 if series is not None and len(series) > 0
                 else Signal("N/A", ("no price data",))
             )
@@ -169,6 +181,7 @@ def build_snapshot(
                 PositionLine(
                     account, symbol, cur, inst, shares, avg, price, prev, cost, mv, pl,
                     None if pl is None else pl / cost, day, sig, tuple(flags),
+                    None if theses is None else theses.get(symbol),
                 )
             )
         summaries.append(
