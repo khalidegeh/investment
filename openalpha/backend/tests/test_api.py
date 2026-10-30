@@ -19,6 +19,7 @@ from app.engine import IngestionEngine
 from app.main import create_app
 
 NOW = datetime(2026, 10, 30, 14, 5, 9, tzinfo=timezone.utc)
+LOCAL = {"X-OpenAlpha": "1"}
 
 
 def loader(symbol: str) -> dict[str, pd.DataFrame]:
@@ -33,7 +34,10 @@ def client(
     root = Path(tmp)
     if portfolio is not None:
         (root / "pf.json").write_text(json.dumps(portfolio))
-    settings = Settings(root / "c.sqlite", 900.0, None, False, root / "pf.json", root / "exports")
+    settings = Settings(
+        root / "c.sqlite", 900.0, None, False, root / "pf.json", root / "exports",
+        alerts_state_path=root / "alerts.json",
+    )
 
     def chart(_: httpx.Request) -> httpx.Response:
         if chart_status != 200:
@@ -95,7 +99,7 @@ class ApiTests(unittest.TestCase):
     def test_post_writes_physical_files(self):
         with tempfile.TemporaryDirectory() as tmp, client(tmp) as c:
             for fmt, ext in (("csv", ".csv"), ("parquet", ".parquet")):
-                r = c.post(f"/api/export/income/SHOP.TO?fmt={fmt}")
+                r = c.post(f"/api/export/income/SHOP.TO?fmt={fmt}", headers=LOCAL)
                 self.assertEqual(r.status_code, 200)
                 body = r.json()
                 self.assertTrue(Path(body["path"]).exists())

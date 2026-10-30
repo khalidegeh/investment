@@ -28,6 +28,9 @@ build-backend = "setuptools.build_meta"
 where = ["."]
 include = ["app*"]
 
+[tool.setuptools.package-data]
+app = ["static/*"]
+
 [tool.mypy]
 python_version = "3.10"
 strict = true

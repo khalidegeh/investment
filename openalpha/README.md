@@ -33,6 +33,8 @@ openalpha/
 | Streaming CSV and Parquet export, API routes | built, tested |
 | Quarterly figures (derived Q4), quarterly thesis check | built, tested on real Apple SEC data |
 | News and SEC 8-K feed, NYSE clock, price alerts | built, tested offline (live UNVERIFIED) |
+| Positions screen (`/`): P/L, signal, thesis, news, alerts, deadline banner | built, checked in a real browser with mocked data |
+| Alerts from your plan (move, break-even, take-profit) | built, tested |
 | Debt discriminator, DCF margin of safety | planned |
 | Options flow, news and FRED, backtester, layout state, AI Scout | planned |
 | Frontend | planned |
@@ -46,11 +48,12 @@ cp ../config/portfolio_config.example.json ../config/portfolio_config.json   # t
 export OPENALPHA_CONTACT=you@example.com      # required for SEC EDGAR
 export OPENALPHA_PORTFOLIO=../config/portfolio_config.json
 uvicorn --factory app.main:create_default --host 127.0.0.1 --port 8000
+# then open http://127.0.0.1:8000/ in a browser
 python -m pytest && ruff check . && mypy
 ```
 
-Routes: `/health`, `/api/ohlcv/{symbol}`, `/api/statements/{symbol}/{income|balance|cashflow}`,
-`/api/positions`, `/api/news/{symbol}?days=7` (headlines and SEC 8-Ks), `/api/market/clock`, `GET /api/export/{dataset}/{symbol}?fmt=csv|parquet` (streams a download),
+Page: `/` (the Positions screen, no build step). Routes: `/health`, `/api/ohlcv/{symbol}`, `/api/statements/{symbol}/{income|balance|cashflow}`,
+`/api/positions`, `/api/news/{symbol}?days=7` (headlines and SEC 8-Ks), `/api/market/clock`, `/api/alerts` (rules from your plan), `POST /api/alerts/check` (evaluate and remember what rang), `GET /api/export/{dataset}/{symbol}?fmt=csv|parquet` (streams a download),
 `POST /api/export/{dataset}/{symbol}?fmt=...` (writes a timestamped file to the export directory),
 `/api/export/positions`.
 
@@ -67,6 +70,9 @@ Routes: `/health`, `/api/ohlcv/{symbol}`, `/api/statements/{symbol}/{income|bala
 - **Per-holding plans.** `take_profit_pct` on a lot (0 = sell when profitable) produces a SELL once price reaches that level above your average entry. Enter `entry_price` as cost per share including commission so profit is real.
 - **Quarterly first.** For SEC filers the thesis check compares each quarter with the same quarter a year earlier (matched by date, so 52 and 53 week years work) and needs 4 readings; otherwise it falls back to annual. The fourth quarter is derived (10-K year minus three quarters) and flagged. A one-time charge in a base quarter distorts the next year's growth figure.
 - **News is untrusted text.** Headlines and filing titles are cleaned, length-capped, links limited to http(s), RSS parsed with defusedxml. Treat them as data to show, never as instructions.
+- **Deadline banner.** `needed_by` in the portfolio file (for example `{"FHSA": "2029-10-30"}`) shows a warning on that account when the money is expected to be needed within 48 months. It informs and never trades.
+- **Alerts from your plan.** Per holding: a move of 5% or more in a day. Per lot with `never_sell_below_entry`: back to average entry, built only while the price is still under it. Per lot with `take_profit_pct`: your target level. Each rings once, and they never trade.
+- **Local server hardening.** Loopback only; the Host header must be local (blocks DNS rebinding); POST routes need an `X-OpenAlpha: 1` header (browsers will not send it cross-site); CORS allows only the Vite dev origins; the page is served with a strict Content-Security-Policy and writes untrusted text only with `textContent`.
 - **Floor rule.** `never_sell_below_entry: true` on a lot (for example XQQ) turns any SELL that would fire under your average entry into a HOLD, with the reason shown as a WARNING and the gain needed to get back to entry.
 - **Hold-through by default.** No SELL is produced unless you opt in (`stop_loss_pct`, `sell_on_downtrend`). A drawdown or downtrend shows as a WARNING on a HOLD, with how far below your entry you are and the gain needed to get back.
 

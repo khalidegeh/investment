@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenAlpha Positions</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header>
+    <h1>OpenAlpha</h1>
+    <div id="clock" class="muted" aria-live="polite"></div>
+    <button id="refresh" type="button">Refresh</button>
+  </header>
+  <main>
+    <div id="status" class="muted" role="status">Loading</div>
+    <section id="alerts" hidden aria-label="Alerts"></section>
+    <section id="totals" aria-label="Totals"></section>
+    <section id="accounts"></section>
+    <section id="notes" class="muted"></section>
+    <p class="muted fine">Signals and thesis statuses come from plain rules and public filings. They are not advice and have no proven edge. Headlines are untrusted text from the internet.</p>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

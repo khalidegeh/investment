@@ -14,3 +14,5 @@ openalpha_layout.json
 openalpha/config/portfolio_config.json
 openalpha/backend/exports/
 exports/
+**/config/portfolio_config.json
+**/config/alerts_state.json

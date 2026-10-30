@@ -33,7 +33,10 @@ def client(
     root = Path(tmp)
     if portfolio is not None:
         (root / "pf.json").write_text(json.dumps(portfolio))
-    settings = Settings(root / "c.sqlite", 900.0, contact, False, root / "pf.json", root / "x")
+    settings = Settings(
+        root / "c.sqlite", 900.0, contact, False, root / "pf.json", root / "x",
+        alerts_state_path=root / "alerts.json",
+    )
     transport = route({
         "/v8/finance/chart/": lambda _: httpx.Response(200, json=chart_payload()),
         "headline": lambda _: httpx.Response(rss_status, content=RSS),

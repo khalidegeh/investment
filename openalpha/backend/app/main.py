@@ -13,18 +13,32 @@ from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Annotated, Literal, cast
 
 import pandas as pd
-from fastapi import FastAPI, Query, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from .config import Settings
 from .engine import IngestionEngine
 from .errors import DataError, FetchError, InvalidSymbol, OpenAlphaError, PortfolioError
 from .export import export_filename, stream_csv, write_csv_file, write_parquet_file
-from .market import CalendarUnknown, is_open, next_open
+from .market import (
+    AlertRule,
+    CalendarUnknown,
+    Quote,
+    evaluate,
+    is_open,
+    load_state,
+    next_open,
+    rules_from_portfolio,
+    save_state,
+)
 from .normalizers import EdgarNormalizer, StatementService, YFinanceNormalizer
 from .normalizers.yfinance import FrameLoader, load_with_yfinance
 from .portfolio import (
@@ -39,11 +53,30 @@ from .portfolio import (
     load_portfolio,
 )
 from .portfolio.thesis import UNKNOWN
-from .sources.news import NewsClient
+from .sources.news import NewsClient, NewsItem
 
 Dataset = Literal["ohlcv", "income", "balance", "cashflow"]
 Fmt = Literal["csv", "parquet"]
 DEV_ORIGINS = ["http://localhost:5173", "http://127.0.0.1:5173"]   # the Vite dev server
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]   # blocks DNS-rebinding requests
+STATIC_DIR = Path(__file__).parent / "static"
+CSP = (
+    "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; "
+    "img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+)
+
+
+def _require_local_header(request: Request) -> None:
+    """State-changing routes need a custom header, which browsers will not send
+    cross-site without a CORS preflight that this server refuses."""
+    if request.headers.get("x-openalpha") != "1":
+        raise HTTPException(status_code=403, detail="missing X-OpenAlpha header")
+
+
+def _news_dict(n: NewsItem) -> dict[str, object]:
+    return {"kind": n.kind, "title": n.title, "url": n.url,
+            "published": n.published.isoformat(), "source": n.source,
+            "items": list(n.items), "material": n.material}
 
 
 @dataclass
@@ -87,11 +120,18 @@ async def _theses(svc: Services, pf: PortfolioConfig) -> dict[str, ThesisResult]
     return out
 
 
-async def _snapshot(svc: Services) -> PortfolioSnapshot:
-    pf = load_portfolio(svc.settings.portfolio_path)
+async def _closes(
+    svc: Services, pf: PortfolioConfig
+) -> tuple[dict[str, pd.Series], tuple[str, ...]]:
     frames = await svc.engine.ohlcv_many(pf.symbols(), years=3)
     closes = {s: f["close"] for s, f in frames.items() if isinstance(f, pd.DataFrame)}
     notes = tuple(f"{s}: {e}" for s, e in frames.items() if isinstance(e, OpenAlphaError))
+    return closes, notes
+
+
+async def _snapshot(svc: Services) -> PortfolioSnapshot:
+    pf = load_portfolio(svc.settings.portfolio_path)
+    closes, notes = await _closes(svc, pf)
     usdcad: float | None = None
     if any(lot.currency == "USD" for lots in pf.accounts.values() for lot in lots):
         try:
@@ -99,7 +139,37 @@ async def _snapshot(svc: Services) -> PortfolioSnapshot:
         except OpenAlphaError as exc:
             notes += (f"USDCAD: {exc}",)
     theses = await _theses(svc, pf)
-    return replace(build_snapshot(pf, closes, usdcad, svc.signal_cfg, theses), notes=notes)
+    snap = build_snapshot(pf, closes, usdcad, svc.signal_cfg, theses, svc.clock().date())
+    return replace(snap, notes=notes)
+
+
+async def _attach_news(
+    svc: Services, data: dict[str, object], days: int, limit: int
+) -> None:
+    """Add recent headlines and 8-Ks to each position line in the serialised snapshot."""
+    accounts = cast(list[dict[str, object]], data["accounts"])
+    lines = [ln for a in accounts for ln in cast(list[dict[str, object]], a["lines"])]
+    symbols = sorted({str(ln["symbol"]) for ln in lines})
+    got = await asyncio.gather(
+        *(svc.news.recent(s, days, svc.clock()) for s in symbols), return_exceptions=True
+    )
+    by_symbol: dict[str, tuple[list[NewsItem], list[str]]] = {}
+    for sym, res in zip(symbols, got, strict=True):
+        if isinstance(res, OpenAlphaError):
+            by_symbol[sym] = ([], [f"news unavailable: {res}"])
+        elif isinstance(res, BaseException):
+            raise res
+        else:
+            by_symbol[sym] = (res[0][:limit], res[1])
+    for ln in lines:
+        items, warns = by_symbol[str(ln["symbol"])]
+        ln["news"] = [_news_dict(n) for n in items]
+        ln["news_warnings"] = warns
+
+
+def _rule_dict(r: AlertRule, state: dict[str, str]) -> dict[str, object]:
+    return {"id": r.id, "symbol": r.symbol, "kind": r.kind, "level": r.level,
+            "note": r.note, "last_rang": state.get(r.id)}
 
 
 def _positions_frame(snap: PortfolioSnapshot) -> pd.DataFrame:
@@ -160,6 +230,24 @@ def create_app(
         CORSMiddleware, allow_origins=DEV_ORIGINS, allow_methods=["GET", "POST"],
         allow_headers=["Content-Type"],
     )
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
+
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):  # type: ignore[no-untyped-def]
+        response: Response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
+        else:
+            response.headers["Content-Security-Policy"] = CSP
+        return response
+
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    @app.get("/", include_in_schema=False)
+    async def index() -> FileResponse:
+        return FileResponse(STATIC_DIR / "index.html", media_type="text/html")
 
     @app.exception_handler(InvalidSymbol)
     async def _bad_symbol(_: Request, exc: InvalidSymbol) -> JSONResponse:
@@ -203,12 +291,7 @@ def create_app(
         return JSONResponse({
             "symbol": symbol.upper(),
             "warnings": warnings,
-            "items": [
-                {"kind": n.kind, "title": n.title, "url": n.url,
-                 "published": n.published.isoformat(), "source": n.source,
-                 "items": list(n.items), "material": n.material}
-                for n in items
-            ],
+            "items": [_news_dict(n) for n in items],
         })
 
     @app.get("/api/market/clock")
@@ -221,8 +304,49 @@ def create_app(
             return JSONResponse({"error": str(exc)}, status_code=404)
 
     @app.get("/api/positions")
-    async def positions(request: Request) -> JSONResponse:
-        return JSONResponse(asdict(await _snapshot(_svc(request))))
+    async def positions(
+        request: Request,
+        news: bool = False,
+        news_days: Annotated[int, Query(ge=1, le=30)] = 7,
+        news_limit: Annotated[int, Query(ge=1, le=10)] = 3,
+    ) -> JSONResponse:
+        svc = _svc(request)
+        data = jsonable_encoder(asdict(await _snapshot(svc)))
+        if news:
+            await _attach_news(svc, data, news_days, news_limit)
+        return JSONResponse(data)
+
+    @app.get("/api/alerts")
+    async def alert_rules(request: Request) -> JSONResponse:
+        """The rules built from your plan and when each last rang. No side effects."""
+        svc = _svc(request)
+        pf = load_portfolio(svc.settings.portfolio_path)
+        closes, _ = await _closes(svc, pf)
+        prices = {s: float(c.iloc[-1]) for s, c in closes.items() if len(c) > 0}
+        state = load_state(svc.settings.alerts_state_path)
+        rules = rules_from_portfolio(pf, prices=prices)
+        return JSONResponse({"rules": [_rule_dict(r, state) for r in rules]})
+
+    @app.post("/api/alerts/check", dependencies=[Depends(_require_local_header)])
+    async def alert_check(request: Request) -> JSONResponse:
+        """Evaluate the rules against the latest closes and remember what rang."""
+        svc = _svc(request)
+        pf = load_portfolio(svc.settings.portfolio_path)
+        closes, notes = await _closes(svc, pf)
+        quotes = {
+            s: Quote(float(c.iloc[-1]), float(c.iloc[-2]) if len(c) > 1 else None)
+            for s, c in closes.items() if len(c) > 0
+        }
+        rules = rules_from_portfolio(pf, prices={s: q.price for s, q in quotes.items()})
+        state = load_state(svc.settings.alerts_state_path)
+        fired, new_state = evaluate(rules, quotes, state, svc.clock().date())
+        save_state(svc.settings.alerts_state_path, new_state)
+        return JSONResponse({
+            "fired": [{"id": f.rule.id, "symbol": f.rule.symbol, "message": f.message,
+                       "price": f.price} for f in fired],
+            "rules": [_rule_dict(r, new_state) for r in rules],
+            "notes": list(notes),
+        })
 
     @app.get("/api/export/positions")
     async def export_positions(request: Request, fmt: Fmt = "csv") -> Response:
@@ -238,7 +362,7 @@ def create_app(
         svc = _svc(request)
         return _deliver(svc, await _dataset(svc, dataset, symbol, years), symbol, dataset, fmt)
 
-    @app.post("/api/export/{dataset}/{symbol}")
+    @app.post("/api/export/{dataset}/{symbol}", dependencies=[Depends(_require_local_header)])
     async def export_to_disk(
         request: Request, dataset: Dataset, symbol: str, fmt: Fmt = "csv",
         years: Annotated[int, Query(ge=1, le=60)] = 30,

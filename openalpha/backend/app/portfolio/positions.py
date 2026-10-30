@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Literal
 
 import pandas as pd
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
 from ..errors import InvalidSymbol, PortfolioError
 from ..symbols import normalize_symbol
@@ -51,6 +51,9 @@ class Lot(BaseModel):
 class PortfolioConfig(BaseModel):
     base_currency: Literal["CAD"] = "CAD"
     accounts: dict[str, list[Lot]]
+    # Optional: when money in an account is expected to be needed (for example an FHSA
+    # home purchase). Informational only; it never triggers a trade.
+    needed_by: dict[str, date] = Field(default_factory=dict)
 
     @field_validator("accounts")
     @classmethod
@@ -61,6 +64,13 @@ class PortfolioConfig(BaseModel):
             if not _ACCOUNT.fullmatch(name):
                 raise ValueError(f"bad account name {name!r} (use A-Z, 0-9, underscore)")
         return v
+
+    @model_validator(mode="after")
+    def _needed_by_known(self) -> PortfolioConfig:
+        unknown = set(self.needed_by) - set(self.accounts)
+        if unknown:
+            raise ValueError(f"needed_by names unknown accounts: {sorted(unknown)}")
+        return self
 
     def symbols(self) -> list[str]:
         return sorted({lot.symbol for lots in self.accounts.values() for lot in lots})
@@ -105,6 +115,8 @@ class AccountSummary:
     total_pl_base: float
     day_pl_base: float
     excluded: tuple[str, ...] = ()
+    needed_by: date | None = None
+    months_to_need: int | None = None     # negative when the date has passed
 
 
 @dataclass(frozen=True)
@@ -128,6 +140,7 @@ def build_snapshot(
     usdcad: float | None,
     cfg: SignalConfig | None = None,
     theses: Mapping[str, ThesisResult] | None = None,
+    today: date | None = None,
 ) -> PortfolioSnapshot:
     """Compute every line and the per-account and overall totals in CAD."""
     cfg = cfg or SignalConfig()
@@ -191,8 +204,15 @@ def build_snapshot(
                     None if theses is None else theses.get(symbol),
                 )
             )
+        due = portfolio.needed_by.get(account)
+        months = (
+            None if due is None or today is None
+            else (due.year - today.year) * 12 + (due.month - today.month)
+        )
         summaries.append(
-            AccountSummary(account, tuple(lines), cost_b, mv_b, pl_b, day_b, tuple(excluded))
+            AccountSummary(
+                account, tuple(lines), cost_b, mv_b, pl_b, day_b, tuple(excluded), due, months
+            )
         )
     return PortfolioSnapshot(
         portfolio.base_currency,
