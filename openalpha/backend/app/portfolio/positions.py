@@ -146,10 +146,8 @@ def build_snapshot(
                 prev = float(series.iloc[-2]) if len(series) > 1 else None
             else:
                 flags.append("no price data")
-            if inst == "etf":
-                flags.append("ETF: shown for totals only, no signals")
             sig = (
-                compute_signal(series, avg, cfg, sharia_ok=sharia_ok, instrument=inst)
+                compute_signal(series, avg, cfg, sharia_ok=sharia_ok)
                 if series is not None and len(series) > 0
                 else Signal("N/A", ("no price data",))
             )

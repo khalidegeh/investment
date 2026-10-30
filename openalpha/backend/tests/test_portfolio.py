@@ -109,13 +109,15 @@ class SnapshotTests(unittest.TestCase):
         with self.assertRaises(PortfolioError):
             build_snapshot(p, {"NVDA": pd.Series([1.0, 2.0])}, 1.4)
 
-    def test_etf_shown_in_totals_without_signal(self):
+    def test_anything_invested_is_included_etf_gets_totals_and_signal(self):
         closes = {"XQQ": pd.Series(np.linspace(100.0, 160.0, 300))}
         p = pf({"TFSA": [lot("XQQ", 1, 100.0, cur="CAD", instrument="etf")]})
-        line = build_snapshot(p, closes, 1.4).lines()[0]
-        self.assertEqual(line.signal.action, "N/A")
-        self.assertGreater(line.market_value or 0, 0)
-        self.assertTrue(any("ETF" in f for f in line.flags))
+        snap = build_snapshot(p, closes, 1.4)
+        line = snap.lines()[0]
+        self.assertNotEqual(line.signal.action, "N/A")
+        self.assertEqual(line.flags, ())
+        self.assertAlmostEqual(snap.market_value_base, 160.0)
+        self.assertAlmostEqual(snap.total_pl_base, 60.0)
 
     def test_rolling_pl(self):
         s = rolling_pl(pd.Series([10.0, 12.0, 9.0]), shares=2, entry_price=10.0)
@@ -135,15 +137,32 @@ class SignalTests(unittest.TestCase):
         self.assertEqual(sig.action, "HOLD")
         self.assertIn("Sharia", sig.reasons[0])
 
-    def test_sell_on_confirmed_downtrend(self):
+    def test_downtrend_warns_but_does_not_sell_by_default(self):
         sig = compute_signal(downtrend(), None, CFG, sharia_ok=True)
-        self.assertEqual(sig.action, "SELL")
+        self.assertEqual(sig.action, "HOLD")
+        self.assertTrue(sig.reasons[0].startswith("WARNING"))
 
-    def test_stop_loss_beats_uptrend(self):
+    def test_downtrend_sells_only_when_opted_in(self):
+        cfg = SignalConfig(sell_on_downtrend=True)
+        self.assertEqual(compute_signal(downtrend(), None, cfg, sharia_ok=True).action, "SELL")
+
+    def test_stop_loss_is_off_by_default_and_opt_in(self):
         s = uptrend_with_dip()
-        sig = compute_signal(s, float(s.iloc[-1]) / 0.8, CFG, sharia_ok=True)   # 20% under entry
+        entry = float(s.iloc[-1]) / 0.8                       # price is 20% under entry
+        held = compute_signal(s, entry, CFG, sharia_ok=True)
+        self.assertNotEqual(held.action, "SELL")
+        self.assertAlmostEqual(held.vs_entry or 0.0, -0.2)
+        self.assertAlmostEqual(held.recovery_needed or 0.0, 0.25)   # 1 / 0.8 - 1
+        self.assertTrue(any("needs +25.0%" in r for r in held.reasons))
+        armed = SignalConfig(stop_loss_pct=0.15)
+        sig = compute_signal(s, entry, armed, sharia_ok=True)
         self.assertEqual(sig.action, "SELL")
         self.assertIn("stop loss", sig.reasons[0])
+
+    def test_no_recovery_figure_when_above_entry(self):
+        sig = compute_signal(uptrend_with_dip(), 50.0, CFG, sharia_ok=True)
+        self.assertIsNone(sig.recovery_needed)
+        self.assertGreater(sig.vs_entry or 0.0, 0.0)
 
     def test_hold_in_calm_uptrend_and_stretch_note(self):
         calm = pd.Series(np.linspace(100.0, 160.0, 300))

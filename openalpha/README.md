@@ -60,7 +60,8 @@ Routes: `/health`, `/api/ohlcv/{symbol}`, `/api/statements/{symbol}/{income|bala
 - **Symbols are validated** before reaching a URL, file name or SQL. Exports sanitise formula-like text cells.
 - **Nothing is guessed.** Missing statement values are NaN; a missing price or FX rate excludes a line from totals and flags it.
 - **Sharia gate.** A BUY signal needs `sharia: "compliant"` on the holding; anything else is downgraded to HOLD.
-- **ETFs** (`instrument: "etf"`) count toward totals but get no signals.
+- **Anything you are invested in is included**, ETFs too: totals, P/L and signals. `instrument` is a label only.
+- **Hold-through by default.** No SELL is produced unless you opt in (`stop_loss_pct`, `sell_on_downtrend`). A drawdown or downtrend shows as a WARNING on a HOLD, with how far below your entry you are and the gain needed to get back.
 
 ## Known limits
 
@@ -69,3 +70,4 @@ Routes: `/health`, `/api/ohlcv/{symbol}`, `/api/statements/{symbol}/{income|bala
 - Yahoo's chart endpoint is unofficial and may breach Yahoo's terms. yfinance row labels vary by version.
 - Live behavior against Yahoo, SEC and yfinance has not been exercised from the build environment.
 - The signals are plain technical rules with no demonstrated edge. Backtest and score them before relying on them.
+- Holding through a drawdown does not guarantee recovery. A single stock can fall and stay down, and a concentrated portfolio is exposed to the same shock across names. Use the entry and recovery figures to size risk, not to assume it away.
