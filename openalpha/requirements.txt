@@ -1,0 +1,16 @@
+# Core runtime. No paid APIs, no API keys required for anything listed here.
+httpx>=0.27            # async HTTP transport for the ingestion engine
+pandas>=2.0            # tabular data
+typing_extensions>=4.5  # Self on Python 3.10
+numpy>=1.26            # native quant calculations (CAPM, Sharpe, rolling vol)
+pyarrow>=15            # parquet export
+fastapi>=0.110         # backend API (next step)
+uvicorn[standard]>=0.29
+pydantic>=2.6
+yfinance>=0.2.40       # fallback source for statements and options chains
+feedparser>=6.0        # RSS news stream
+plotly>=5.20           # interactive charts
+# Dev
+pandas-stubs
+mypy>=1.10
+ruff>=0.4

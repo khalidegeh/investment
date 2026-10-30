@@ -1,0 +1,23 @@
+[project]
+name = "openalpha"
+version = "0.1.0"
+description = "Self-hosted, zero-license quantitative research workspace"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.27",
+    "pandas>=2.0",
+    "numpy>=1.26",
+    "typing_extensions>=4.5",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["src/openalpha"]

@@ -7,3 +7,7 @@ __pycache__/
 .DS_Store
 config.yaml
 *.egg-info/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+openalpha_layout.json

@@ -1,0 +1,6 @@
+# Heavy or situational. Install only when you wire the matching feature.
+openbb>=4.1            # optional data source; large dependency tree, many providers need keys
+langchain>=0.2         # AI Scout router (cloud LLM path)
+langchain-community>=0.2
+ollama>=0.2            # AI Scout router (local LLM path)
+streamlit>=1.35        # only if you choose Streamlit instead of React
