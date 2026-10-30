@@ -31,6 +31,8 @@ openalpha/
 | Statement normalizers (EDGAR, yfinance) and failover | built, tested offline, yfinance labels live UNVERIFIED |
 | Positions: entry, P/L, signals | built, tested |
 | Streaming CSV and Parquet export, API routes | built, tested |
+| Quarterly figures (derived Q4), quarterly thesis check | built, tested on real Apple SEC data |
+| News and SEC 8-K feed, NYSE clock, price alerts | built, tested offline (live UNVERIFIED) |
 | Debt discriminator, DCF margin of safety | planned |
 | Options flow, news and FRED, backtester, layout state, AI Scout | planned |
 | Frontend | planned |
@@ -48,7 +50,7 @@ python -m pytest && ruff check . && mypy
 ```
 
 Routes: `/health`, `/api/ohlcv/{symbol}`, `/api/statements/{symbol}/{income|balance|cashflow}`,
-`/api/positions`, `GET /api/export/{dataset}/{symbol}?fmt=csv|parquet` (streams a download),
+`/api/positions`, `/api/news/{symbol}?days=7` (headlines and SEC 8-Ks), `/api/market/clock`, `GET /api/export/{dataset}/{symbol}?fmt=csv|parquet` (streams a download),
 `POST /api/export/{dataset}/{symbol}?fmt=...` (writes a timestamped file to the export directory),
 `/api/export/positions`.
 
@@ -63,11 +65,15 @@ Routes: `/health`, `/api/ohlcv/{symbol}`, `/api/statements/{symbol}/{income|bala
 - **Anything you are invested in is included**, ETFs too: totals, P/L and signals. `instrument` is a label only.
 - **Thesis check, not price.** Each stock gets INTACT, WATCH, BROKEN or UNKNOWN from annual revenue growth and diluted EPS growth, judged separately. A metric fails after 2 straight non-growth periods; BROKEN needs both to fail, and one failing is WATCH (a single decline, 2 slowdowns in a row, or revenue well below peers also give WATCH). A missing year breaks the chain; short history is UNKNOWN. Funds are N/A.
 - **Per-holding plans.** `take_profit_pct` on a lot (0 = sell when profitable) produces a SELL once price reaches that level above your average entry. Enter `entry_price` as cost per share including commission so profit is real.
+- **Quarterly first.** For SEC filers the thesis check compares each quarter with the same quarter a year earlier (matched by date, so 52 and 53 week years work) and needs 4 readings; otherwise it falls back to annual. The fourth quarter is derived (10-K year minus three quarters) and flagged. A one-time charge in a base quarter distorts the next year's growth figure.
+- **News is untrusted text.** Headlines and filing titles are cleaned, length-capped, links limited to http(s), RSS parsed with defusedxml. Treat them as data to show, never as instructions.
 - **Floor rule.** `never_sell_below_entry: true` on a lot (for example XQQ) turns any SELL that would fire under your average entry into a HOLD, with the reason shown as a WARNING and the gain needed to get back to entry.
 - **Hold-through by default.** No SELL is produced unless you opt in (`stop_loss_pct`, `sell_on_downtrend`). A drawdown or downtrend shows as a WARNING on a HOLD, with how far below your entry you are and the gain needed to get back.
 
 ## Known limits
 
+- The NYSE holiday list covers 2026 and 2027 only (from trader-skill, matches my recollection, nyse.com not opened). Other years raise instead of guessing.
+- Alerts are pure functions with no scheduler yet; they inform, never trade.
 - EDGAR XBRL statement history starts around 2009 (vendor-reported, not confirmed against SEC documentation). yfinance typically returns about 4 fiscal years. 30 to 40 years of statements is not available from these free sources.
 - Free cash flow is defined as operating cash flow minus capex. Debt fields use the aggregate tag only and never sum components, so they can be NaN.
 - Yahoo's chart endpoint is unofficial and may breach Yahoo's terms. yfinance row labels vary by version.

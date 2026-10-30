@@ -5,6 +5,7 @@ from collections.abc import Mapping
 from datetime import date
 from typing import Protocol
 
+import numpy as np
 import pandas as pd
 
 from ..models import StatementSet
@@ -51,3 +52,29 @@ def yoy_growth(df: pd.DataFrame) -> pd.DataFrame:
     growth = df / prev - 1.0
     out: pd.DataFrame = growth.where(prev > 0)
     return out
+
+
+def yoy_growth_quarterly(
+    df: pd.DataFrame, min_days: int = 350, max_days: int = 380
+) -> pd.DataFrame:
+    """Growth against the same fiscal quarter a year earlier, matched by date.
+
+    Fiscal quarters end on drifting dates (52 or 53 week years), so the prior-year
+    quarter is the earlier row whose end date is 350 to 380 days before. NaN when
+    there is no such row or its value is not positive.
+    """
+    idx = pd.DatetimeIndex(df.index)
+    values = df.to_numpy(dtype="float64")
+    out = np.full(values.shape, np.nan)
+    for i in range(len(idx)):
+        prior = [
+            j for j in range(i) if min_days <= (idx[i] - idx[j]).days <= max_days
+        ]
+        if not prior:
+            continue
+        j = prior[-1]
+        for c in range(values.shape[1]):
+            if values[j, c] > 0:
+                out[i, c] = values[i, c] / values[j, c] - 1.0
+    result: pd.DataFrame = pd.DataFrame(out, index=df.index, columns=df.columns)
+    return result

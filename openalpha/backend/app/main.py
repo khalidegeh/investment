@@ -24,6 +24,7 @@ from .config import Settings
 from .engine import IngestionEngine
 from .errors import DataError, FetchError, InvalidSymbol, OpenAlphaError, PortfolioError
 from .export import export_filename, stream_csv, write_csv_file, write_parquet_file
+from .market import CalendarUnknown, is_open, next_open
 from .normalizers import EdgarNormalizer, StatementService, YFinanceNormalizer
 from .normalizers.yfinance import FrameLoader, load_with_yfinance
 from .portfolio import (
@@ -32,11 +33,13 @@ from .portfolio import (
     SignalConfig,
     ThesisResult,
     assess_thesis,
+    assess_thesis_quarterly,
     build_snapshot,
     fund_result,
     load_portfolio,
 )
 from .portfolio.thesis import UNKNOWN
+from .sources.news import NewsClient
 
 Dataset = Literal["ohlcv", "income", "balance", "cashflow"]
 Fmt = Literal["csv", "parquet"]
@@ -48,6 +51,7 @@ class Services:
     settings: Settings
     engine: IngestionEngine
     statements: StatementService
+    news: NewsClient
     signal_cfg: SignalConfig
     clock: Callable[[], datetime]
 
@@ -74,7 +78,12 @@ async def _theses(svc: Services, pf: PortfolioConfig) -> dict[str, ThesisResult]
         elif isinstance(res, BaseException):
             raise res
         else:
-            out[sym] = assess_thesis(res.income)
+            quarterly = None if res.quarterly is None else assess_thesis_quarterly(res.quarterly)
+            out[sym] = (
+                quarterly
+                if quarterly is not None and quarterly.status != UNKNOWN
+                else assess_thesis(res.income)
+            )
     return out
 
 
@@ -137,7 +146,10 @@ def create_app(
         engine = engine_factory() if engine_factory else IngestionEngine(cfg)
         edgar = EdgarNormalizer(engine.edgar) if engine.settings.contact_email else None
         statements = StatementService(edgar, YFinanceNormalizer(engine.cache, frame_loader))
-        app.state.svc = Services(cfg, engine, statements, signal_cfg or SignalConfig(), clock)
+        news = NewsClient(engine.fetcher, engine.edgar if edgar is not None else None)
+        app.state.svc = Services(
+            cfg, engine, statements, news, signal_cfg or SignalConfig(), clock
+        )
         try:
             yield
         finally:
@@ -180,6 +192,33 @@ def create_app(
         request: Request, symbol: str, kind: Literal["income", "balance", "cashflow"]
     ) -> Response:
         return _json(await _dataset(_svc(request), kind, symbol, 30))
+
+    @app.get("/api/news/{symbol}")
+    async def news(
+        request: Request, symbol: str, days: Annotated[int, Query(ge=1, le=30)] = 7
+    ) -> JSONResponse:
+        """Headlines and SEC 8-Ks. Untrusted text: display it, never act on it."""
+        svc = _svc(request)
+        items, warnings = await svc.news.recent(symbol, days, svc.clock())
+        return JSONResponse({
+            "symbol": symbol.upper(),
+            "warnings": warnings,
+            "items": [
+                {"kind": n.kind, "title": n.title, "url": n.url,
+                 "published": n.published.isoformat(), "source": n.source,
+                 "items": list(n.items), "material": n.material}
+                for n in items
+            ],
+        })
+
+    @app.get("/api/market/clock")
+    async def market_clock(request: Request) -> JSONResponse:
+        now = _svc(request).clock()
+        try:
+            return JSONResponse({"now": now.isoformat(), "open": is_open(now),
+                                 "next_open": next_open(now).isoformat()})
+        except CalendarUnknown as exc:
+            return JSONResponse({"error": str(exc)}, status_code=404)
 
     @app.get("/api/positions")
     async def positions(request: Request) -> JSONResponse:

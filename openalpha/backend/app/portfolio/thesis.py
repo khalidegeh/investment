@@ -15,7 +15,7 @@ from itertools import pairwise
 
 import pandas as pd
 
-from ..normalizers.base import yoy_growth
+from ..normalizers.base import yoy_growth, yoy_growth_quarterly
 
 INTACT = "INTACT"
 WATCH = "WATCH"
@@ -41,6 +41,7 @@ class ThesisResult:
     revenue_growth: tuple[float, ...] = ()   # YoY readings, oldest to newest
     eps_growth: tuple[float, ...] = ()
     as_of: str | None = None                 # latest fiscal period used
+    basis: str = "annual"                    # "annual" or "quarterly"
 
 
 @dataclass(frozen=True)
@@ -55,11 +56,17 @@ def fund_result() -> ThesisResult:
 
 
 def _assess_metric(
-    df: pd.DataFrame, column: str, label: str, cfg: ThesisConfig, peer_growth: float | None
+    df: pd.DataFrame,
+    column: str,
+    label: str,
+    cfg: ThesisConfig,
+    peer_growth: float | None,
+    growth: pd.Series | None = None,
 ) -> _Metric:
     if column not in df.columns or df[column].dropna().empty:
         return _Metric(UNKNOWN, (f"{label}: no history available",))
-    growth = yoy_growth(df[[column]])[column]
+    if growth is None:
+        growth = yoy_growth(df[[column]])[column]
     readings = [float(x) for x in growth.dropna()]
     if len(readings) < cfg.min_yoy_points:
         return _Metric(
@@ -97,22 +104,11 @@ def _assess_metric(
     return res(INTACT, f"{label} growing {latest:.1%} year over year")
 
 
-def assess_thesis(
-    income: pd.DataFrame,
-    cfg: ThesisConfig | None = None,
-    peer_growth: float | None = None,
-) -> ThesisResult:
-    """Status from a normalised income statement (ascending period index)."""
-    cfg = cfg or ThesisConfig()
-    rev = _assess_metric(income, "revenue", "revenue", cfg, peer_growth)
-    eps = _assess_metric(income, "diluted_eps", "EPS", cfg, None)
-    used = [c for c in ("revenue", "diluted_eps") if c in income.columns]
-    seen = income[used].dropna(how="all") if used else income.iloc[0:0]
-    as_of = None if seen.empty else str(pd.Timestamp(seen.index[-1]).date())
+def _combine(rev: _Metric, eps: _Metric, as_of: str | None, basis: str) -> ThesisResult:
     reasons = (*rev.reasons, *eps.reasons)
 
     def res(status: str, *extra: str) -> ThesisResult:
-        return ThesisResult(status, (*reasons, *extra), rev.readings, eps.readings, as_of)
+        return ThesisResult(status, (*reasons, *extra), rev.readings, eps.readings, as_of, basis)
 
     measured = [m for m in (rev, eps) if m.status != UNKNOWN]
     if not measured:
@@ -128,3 +124,45 @@ def assess_thesis(
     if len(measured) == 1:
         return res(INTACT, "based on one of revenue and EPS only; the other is unavailable")
     return res(INTACT)
+
+
+def _as_of(frame: pd.DataFrame, columns: list[str]) -> str | None:
+    used = [c for c in columns if c in frame.columns]
+    seen = frame[used].dropna(how="all") if used else frame.iloc[0:0]
+    return None if seen.empty else str(pd.Timestamp(seen.index[-1]).date())
+
+
+def assess_thesis(
+    income: pd.DataFrame,
+    cfg: ThesisConfig | None = None,
+    peer_growth: float | None = None,
+) -> ThesisResult:
+    """Status from a normalised annual income statement (ascending period index)."""
+    cfg = cfg or ThesisConfig()
+    rev = _assess_metric(income, "revenue", "revenue", cfg, peer_growth)
+    eps = _assess_metric(income, "diluted_eps", "EPS", cfg, None)
+    return _combine(rev, eps, _as_of(income, ["revenue", "diluted_eps"]), "annual")
+
+
+# Quarters are noisier than years: ask for more readings and a longer slowdown.
+QUARTERLY_CONFIG = ThesisConfig(min_yoy_points=4, shrink_periods=2, decel_periods=3)
+
+
+def assess_thesis_quarterly(
+    quarterly: pd.DataFrame,
+    cfg: ThesisConfig | None = None,
+    peer_growth: float | None = None,
+) -> ThesisResult:
+    """Same rules on quarters, each compared with the same quarter a year earlier."""
+    cfg = cfg or QUARTERLY_CONFIG
+    cols = [c for c in ("revenue", "diluted_eps") if c in quarterly.columns]
+    growth = yoy_growth_quarterly(quarterly[cols]) if cols else quarterly.iloc[0:0]
+    rev = _assess_metric(
+        quarterly, "revenue", "revenue", cfg, peer_growth,
+        growth["revenue"] if "revenue" in growth.columns else None,
+    )
+    eps = _assess_metric(
+        quarterly, "diluted_eps", "EPS", cfg, None,
+        growth["diluted_eps"] if "diluted_eps" in growth.columns else None,
+    )
+    return _combine(rev, eps, _as_of(quarterly, ["revenue", "diluted_eps"]), "quarterly")

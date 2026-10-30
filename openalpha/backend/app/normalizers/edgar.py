@@ -122,7 +122,14 @@ def normalize_company_facts(symbol: str, facts_payload: dict[str, object]) -> St
     income, cashflow = derive(income, cashflow, notes)
     first = min(df.index.min() for df in (income, balance, cashflow) if not df.empty)
     notes.append(f"edgar coverage starts {pd.Timestamp(first).date()} (XBRL era)")
-    return StatementSet(symbol, "edgar", income, balance, cashflow, tuple(notes))
+    quarterly: pd.DataFrame | None = None
+    try:
+        from .quarterly import normalize_quarterly
+
+        quarterly = normalize_quarterly(gaap)
+    except DataError:
+        notes.append("no quarterly figures could be built; annual only")
+    return StatementSet(symbol, "edgar", income, balance, cashflow, tuple(notes), quarterly)
 
 
 class EdgarNormalizer:

@@ -31,6 +31,7 @@ DEFAULT_HOST_LIMITS: dict[str, HostLimit] = {
     "query2.finance.yahoo.com": HostLimit(0.25, 4),
     "www.sec.gov": HostLimit(0.15, 4),
     "data.sec.gov": HostLimit(0.15, 4),
+    "feeds.finance.yahoo.com": HostLimit(0.5, 2),
 }
 
 

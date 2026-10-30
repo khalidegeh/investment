@@ -12,6 +12,7 @@ from ..useragents import identifying_agent
 
 TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 FACTS_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik:010d}.json"
+SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik:010d}.json"
 DAY = 86_400.0
 
 
@@ -57,3 +58,15 @@ class EdgarClient:
         if not isinstance(payload, dict) or not isinstance(payload.get("facts"), dict):
             raise DataError(f"edgar: no facts for CIK {cik}")
         return payload
+
+    async def submissions(self, symbol: str) -> tuple[int, dict[str, object]]:
+        """Recent filing list for a company: (cik, payload)."""
+        cik = await self.cik_for(symbol)
+        res = await self._fetcher.get(SUBMISSIONS_URL.format(cik=cik), user_agent=self._ua)
+        try:
+            payload = res.json()
+        except ValueError as exc:
+            raise DataError("edgar: submissions were not JSON") from exc
+        if not isinstance(payload, dict) or not isinstance(payload.get("filings"), dict):
+            raise DataError(f"edgar: no filings for CIK {cik}")
+        return cik, payload

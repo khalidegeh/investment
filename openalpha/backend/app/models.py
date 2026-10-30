@@ -50,6 +50,7 @@ class StatementSet:
     balance: pd.DataFrame
     cashflow: pd.DataFrame
     notes: tuple[str, ...] = ()
+    quarterly: pd.DataFrame | None = None   # EDGAR only: quarters plus a 'derived' flag
 
     def frame(self, kind: str) -> pd.DataFrame:
         if kind == "income":
